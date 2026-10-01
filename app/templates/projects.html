@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}TaskFlow — Projects Hub{% endblock %}
+{% block page_title %}Projects{% endblock %}
+
+{% block content %}
+<!-- Top Header & New Project Action -->
+<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;">
+  <div>
+    <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">
+      Projects Overview
+    </h2>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">
+      Track initiatives, milestones, and task completion velocity across teams.
+    </p>
+  </div>
+
+  <button type="button" class="btn btn-primary" data-modal-target="addProjectModal">
+    <span>+ New Project</span>
+  </button>
+</div>
+
+<!-- Projects Grid -->
+{% if projects %}
+  <div class="projects-grid">
+    {% for p in projects %}
+      <div class="project-card">
+        <div>
+          <div class="project-card-header">
+            <h3 class="project-name">
+              <a href="{{ url_for('main.project_detail', project_id=p.project.id) }}">
+                {{ p.project.name }}
+              </a>
+            </h3>
+            <span class="badge {% if p.project.status == 'ACTIVE' %}badge-status-in_progress{% elif p.project.status == 'COMPLETED' %}badge-status-completed{% else %}badge-status-todo{% endif %}">
+              {{ p.project.status }}
+            </span>
+          </div>
+
+          <p class="project-description">
+            {{ p.project.description or 'No project description provided.' }}
+          </p>
+        </div>
+
+        <div>
+          <!-- Progress Meta -->
+          <div class="project-meta-row">
+            <span>Progress ({{ p.completed_tasks }}/{{ p.total_tasks }} tasks)</span>
+            <span style="font-weight: 700; color: var(--primary);">{{ p.progress_percentage }}%</span>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="progress-bar-container" style="margin-bottom: 1.25rem;">
+            <div class="progress-bar-fill {% if p.progress_percentage == 100 %}progress-bar-success{% endif %}"
+                 style="width: {{ p.progress_percentage }}%;"></div>
+          </div>
+
+          <!-- Card Footer Info -->
+          <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
+            <span style="color: var(--text-muted);">
+              Deadline: <strong>{{ p.project.deadline | format_date if p.project.deadline else 'Open' }}</strong>
+            </span>
+            <a href="{{ url_for('main.project_detail', project_id=p.project.id) }}" class="btn btn-secondary btn-sm">
+              View Tasks &rarr;
+            </a>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card">
+    <div class="card-body">
+      <div class="empty-state">
+        <div class="empty-state-icon">📁</div>
+        <div class="empty-state-title">No projects yet</div>
+        <p class="empty-state-desc">Organize your work by creating your first project container.</p>
+        <button class="btn btn-primary" data-modal-target="addProjectModal">+ Create Project</button>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+<!-- ============================================================================
+     MODAL: Add Project
+     ============================================================================ -->
+<div class="modal-backdrop" id="addProjectModal" role="dialog" aria-modal="true" aria-labelledby="addProjTitle">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 class="modal-title" id="addProjTitle">Create New Project</h3>
+      <button class="modal-close-btn" type="button" aria-label="Close Modal">&times;</button>
+    </div>
+    <form action="{{ url_for('main.add_project') }}" method="POST">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="proj_name">Project Name *</label>
+          <input type="text" class="form-control" id="proj_name" name="name" required minlength="2" maxlength="100" placeholder="e.g. Website Redesign">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="proj_desc">Description</label>
+          <textarea class="form-control" id="proj_desc" name="description" rows="3" placeholder="Goals, deliverables and context..."></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label class="form-label" for="proj_status">Status</label>
+            <select class="form-select" id="proj_status" name="status">
+              <option value="ACTIVE" selected>Active</option>
+              <option value="ON_HOLD">On Hold</option>
+              <option value="COMPLETED">Completed</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="proj_deadline">Deadline</label>
+            <input type="date" class="form-control" id="proj_deadline" name="deadline">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-modal-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Project</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

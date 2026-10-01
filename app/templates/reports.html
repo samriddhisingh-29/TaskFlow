@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}TaskFlow — Analytics & Reports{% endblock %}
+{% block page_title %}Analytics & Reports{% endblock %}
+
+{% block content %}
+<!-- Section Header -->
+<div style="margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">
+      Productivity Intelligence
+    </h2>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">
+      Real-time analytics and workload distributions computed dynamically from Python collections.
+    </p>
+  </div>
+
+  <a href="{{ url_for('main.export_tasks_csv') }}" class="btn btn-secondary">
+    <span>📥 Export Detailed CSV</span>
+  </a>
+</div>
+
+<!-- High-Level Metric Tiles -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div>
+      <div class="stat-label">Total Volume</div>
+      <div class="stat-value">{{ metrics.total_tasks }}</div>
+      <div class="stat-subtitle">All-time managed tasks</div>
+    </div>
+    <div class="stat-icon-wrapper stat-icon-purple">📁</div>
+  </div>
+
+  <div class="stat-card">
+    <div>
+      <div class="stat-label">Overall Completion</div>
+      <div class="stat-value" style="color: var(--success);">{{ metrics.completion_percentage }}%</div>
+      <div class="stat-subtitle">{{ metrics.completed_tasks }} items completed</div>
+    </div>
+    <div class="stat-icon-wrapper stat-icon-green">✓</div>
+  </div>
+
+  <div class="stat-card">
+    <div>
+      <div class="stat-label">In Pipeline</div>
+      <div class="stat-value" style="color: var(--warning);">{{ metrics.pending_tasks }}</div>
+      <div class="stat-subtitle">{{ metrics.in_progress_tasks }} actively in progress</div>
+    </div>
+    <div class="stat-icon-wrapper stat-icon-amber">⚡</div>
+  </div>
+
+  <div class="stat-card">
+    <div>
+      <div class="stat-label">Past Deadline</div>
+      <div class="stat-value" style="color: var(--danger);">{{ metrics.overdue_tasks }}</div>
+      <div class="stat-subtitle">Requires reschedule or closure</div>
+    </div>
+    <div class="stat-icon-wrapper stat-icon-red">⏰</div>
+  </div>
+</div>
+
+<!-- Charts Grid: 2x2 Layout -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+  <!-- Weekly Productivity Trend -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Weekly Task Velocity</h3>
+      <span style="font-size: 0.78rem; color: var(--text-muted);">Created vs Completed</span>
+    </div>
+    <div class="card-body" style="height: 300px; position: relative;">
+      <canvas id="weeklyTrendChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Status Distribution -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Status Breakdown</h3>
+      <span style="font-size: 0.78rem; color: var(--text-muted);">Active Proportion</span>
+    </div>
+    <div class="card-body" style="height: 300px; position: relative;">
+      <canvas id="statusDoughnutChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Priority Distribution -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Priority Distribution</h3>
+      <span style="font-size: 0.78rem; color: var(--text-muted);">Workload Urgency</span>
+    </div>
+    <div class="card-body" style="height: 300px; position: relative;">
+      <canvas id="priorityDistChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Project Progress Bar Chart -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Project Completion Progress</h3>
+      <span style="font-size: 0.78rem; color: var(--text-muted);">Percentage</span>
+    </div>
+    <div class="card-body" style="height: 300px; position: relative;">
+      <canvas id="projectProgressChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Category Distribution Table -->
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Category Workload Distribution</h3>
+    <span style="font-size: 0.78rem; color: var(--text-muted);">Task count per domain</span>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    <div class="task-table-wrapper" style="border: none;">
+      <table class="task-table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Task Count</th>
+            <th>Share of Total</th>
+            <th>Distribution</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cat, count in analytics.category_distribution.items() %}
+            {% set pct = (count / metrics.total_tasks * 100)|round(1) if metrics.total_tasks > 0 else 0 %}
+            <tr>
+              <td style="font-weight: 600; color: var(--text-main);">
+                <span class="badge badge-category">{{ cat }}</span>
+              </td>
+              <td style="font-weight: 700; color: var(--text-main);">{{ count }}</td>
+              <td style="color: var(--text-muted); font-size: 0.85rem;">{{ pct }}%</td>
+              <td style="width: 40%;">
+                <div class="progress-bar-container">
+                  <div class="progress-bar-fill" style="width: {{ pct }}%;"></div>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

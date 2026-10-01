@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}TaskFlow — {{ project.name }}{% endblock %}
+{% block page_title %}{{ project.name }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb & Back Link -->
+<div style="margin-bottom: 1.25rem;">
+  <a href="{{ url_for('main.projects') }}" style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; font-weight: 600; color: var(--text-muted);">
+    <span>&larr;</span> Back to Projects
+  </a>
+</div>
+
+<!-- Project Hero Card with Progress Ring -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-body" style="padding: 2rem;">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 2rem;">
+      <div style="max-width: 600px;">
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+          <h2 style="font-size: 1.75rem; font-weight: 800; color: var(--text-main);">{{ project.name }}</h2>
+          <span class="badge {% if project.status == 'ACTIVE' %}badge-status-in_progress{% elif project.status == 'COMPLETED' %}badge-status-completed{% else %}badge-status-todo{% endif %}">
+            {{ project.status }}
+          </span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; margin-bottom: 1rem;">
+          {{ project.description or 'No detailed description available for this initiative.' }}
+        </p>
+        <div style="display: flex; align-items: center; gap: 1.5rem; font-size: 0.85rem; color: var(--text-light);">
+          <span>Created: <strong>{{ project.created_at.strftime('%b %d, %Y') }}</strong></span>
+          <span>Target Deadline: <strong>{{ project.deadline | format_date if project.deadline else 'Not set' }}</strong></span>
+        </div>
+      </div>
+
+      <!-- Radial Progress Ring & Summary -->
+      <div style="display: flex; align-items: center; gap: 1.75rem;">
+        <div style="position: relative; width: 110px; height: 110px;">
+          <!-- SVG Progress Ring (circumference: 2 * PI * 45 = 282.74) -->
+          <svg class="progress-ring" width="110" height="110" viewBox="0 0 110 110">
+            <circle class="progress-ring-circle-bg" cx="55" cy="55" r="45" />
+            <circle class="progress-ring-circle" cx="55" cy="55" r="45"
+                    stroke-dasharray="282.74"
+                    stroke-dashoffset="{{ 282.74 - (282.74 * (details.progress_percentage / 100)) }}" />
+          </svg>
+          <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <span style="font-size: 1.25rem; font-weight: 800; color: var(--primary);">{{ details.progress_percentage }}%</span>
+            <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-light); font-weight: 700;">Completed</span>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.85rem;">
+          <div><strong style="color: var(--text-main);">{{ details.total_tasks }}</strong> Total Tasks</div>
+          <div><strong style="color: var(--success);">{{ details.completed_tasks }}</strong> Completed</div>
+          <div><strong style="color: var(--warning);">{{ details.pending_tasks }}</strong> In Progress & To-Do</div>
+          <div><strong style="color: var(--danger);">{{ details.overdue_tasks }}</strong> Overdue</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Project Tasks Section -->
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+  <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-main);">
+    Project Tasks ({{ tasks|length }})
+  </h3>
+  <button class="btn btn-primary btn-sm" data-modal-target="addTaskModal">
+    + Add Task to Project
+  </button>
+</div>
+
+<!-- Task Table -->
+<div class="card">
+  <div class="card-body" style="padding: 0;">
+    {% if tasks %}
+      <div class="task-table-wrapper" style="border: none;">
+        <table class="task-table">
+          <thead>
+            <tr>
+              <th style="width: 44px;"></th>
+              <th>Task</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Due Date</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for task in tasks %}
+              <tr>
+                <td>
+                  <button class="task-checkbox-btn {% if task.status == 'COMPLETED' %}checked{% endif %} task-toggle-btn"
+                          data-task-id="{{ task.id }}"
+                          title="Toggle Status">
+                    {% if task.status == 'COMPLETED' %}✓{% endif %}
+                  </button>
+                </td>
+                <td>
+                  <div class="task-title-cell">
+                    <span class="task-title-text {% if task.status == 'COMPLETED' %}completed{% endif %}">
+                      {{ task.title }}
+                    </span>
+                    {% if task.description %}
+                      <span class="task-desc-preview">{{ task.description }}</span>
+                    {% endif %}
+                    <div>
+                      <span class="badge badge-category">{{ task.category }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge badge-priority-{{ task.priority.lower() }}">
+                    {{ task.priority }}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge badge-status-{{ task.status.lower() }}">
+                    {{ task.status.replace('_', ' ') }}
+                  </span>
+                </td>
+                <td style="white-space: nowrap; font-size: 0.85rem; color: var(--text-muted);">
+                  {{ task.due_date | format_date if task.due_date else 'No date' }}
+                  {% if task.is_overdue %}
+                    <span class="overdue-tag">! Overdue</span>
+                  {% endif %}
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <button class="btn btn-secondary btn-sm edit-task-btn"
+                          data-id="{{ task.id }}"
+                          data-title="{{ task.title }}"
+                          data-desc="{{ task.description }}"
+                          data-status="{{ task.status }}"
+                          data-priority="{{ task.priority }}"
+                          data-category="{{ task.category }}"
+                          data-due="{{ task.due_date or '' }}"
+                          data-project="{{ task.project_id or '' }}"
+                          title="Edit Task">
+                    ✎
+                  </button>
+                  <button class="btn btn-secondary btn-sm delete-task-btn"
+                          data-id="{{ task.id }}"
+                          data-title="{{ task.title }}"
+                          style="color: var(--danger);"
+                          title="Delete Task">
+                    🗑
+                  </button>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">📝</div>
+        <div class="empty-state-title">No tasks in this project yet</div>
+        <p class="empty-state-desc">Break this project down by creating actionable tasks.</p>
+        <button class="btn btn-primary btn-sm" data-modal-target="addTaskModal">+ Add First Task</button>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

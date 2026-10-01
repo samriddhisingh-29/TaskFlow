@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}TaskFlow — Smart Task & Project Management{% endblock %}</title>
+  
+  <!-- Modern Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="app-sidebar" aria-label="Main Navigation">
+      <div class="sidebar-header">
+        <a href="{{ url_for('main.dashboard') }}" class="brand-logo">
+          <div class="brand-icon">TF</div>
+          <div>
+            <div style="line-height: 1.1;">TaskFlow</div>
+            <div style="font-size: 0.65rem; color: var(--text-muted); font-weight: 500;">Plan better. Work smarter.</div>
+          </div>
+        </a>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Menu</div>
+        
+        <a href="{{ url_for('main.dashboard') }}" class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}">
+          <span class="nav-icon">📊</span>
+          <span>Dashboard</span>
+        </a>
+
+        <a href="{{ url_for('main.tasks') }}" class="nav-link {% if request.endpoint == 'main.tasks' %}active{% endif %}">
+          <span class="nav-icon">📋</span>
+          <span>All Tasks</span>
+        </a>
+
+        <a href="{{ url_for('main.projects') }}" class="nav-link {% if request.endpoint in ['main.projects', 'main.project_detail'] %}active{% endif %}">
+          <span class="nav-icon">📁</span>
+          <span>Projects</span>
+        </a>
+
+        <a href="{{ url_for('main.reports') }}" class="nav-link {% if request.endpoint == 'main.reports' %}active{% endif %}">
+          <span class="nav-icon">📈</span>
+          <span>Analytics & Reports</span>
+        </a>
+
+        <div class="nav-section-title" style="margin-top: 1rem;">Data & Tools</div>
+
+        <a href="{{ url_for('main.export_tasks_csv') }}" class="nav-link" title="Export all tasks to dynamic CSV">
+          <span class="nav-icon">📥</span>
+          <span>Export CSV</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button id="themeToggleBtn" class="theme-toggle-btn" type="button" aria-label="Toggle Dark Mode">
+          <span id="themeLabel">Dark Mode</span>
+          <span id="themeIcon">🌙</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="app-main">
+      <!-- Top Navbar -->
+      <header class="top-navbar">
+        <div class="top-nav-left">
+          <button id="mobileMenuToggle" class="mobile-menu-toggle" aria-label="Open Sidebar Menu">☰</button>
+          <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+        </div>
+
+        <div class="top-nav-actions">
+          <span class="date-badge">{{ today_date }}</span>
+          
+          <button type="button" class="btn btn-primary" data-modal-target="addTaskModal">
+            <span>+</span>
+            <span>Quick Add Task</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Flash Messages Container -->
+      <div style="padding: 1rem 2rem 0; max-width: 1400px; margin: 0 auto; width: 100%;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash-message toast toast-{{ category }}" style="animation: none; margin-bottom: 0.5rem; max-width: 100%;">
+                <span style="font-weight: bold;">
+                  {% if category == 'success' %}✓{% elif category == 'danger' %}✕{% else %}ℹ{% endif %}
+                </span>
+                <span>{{ message }}</span>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+      </div>
+
+      <!-- Main Body -->
+      <main class="content-body">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <!-- ============================================================================
+       MODAL: Quick Add Task
+       ============================================================================ -->
+  <div class="modal-backdrop" id="addTaskModal" role="dialog" aria-modal="true" aria-labelledby="addTaskTitle">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="addTaskTitle">Create New Task</h3>
+        <button class="modal-close-btn" type="button" aria-label="Close Modal">&times;</button>
+      </div>
+      <form action="{{ url_for('main.add_task') }}" method="POST" id="createTaskForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="task_title">Task Title *</label>
+            <input type="text" class="form-control" id="task_title" name="title" required minlength="3" maxlength="150" placeholder="e.g. Design dashboard wireframe">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="task_description">Description</label>
+            <textarea class="form-control" id="task_description" name="description" rows="3" placeholder="Add context, acceptance criteria or notes..."></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="task_priority">Priority</label>
+              <select class="form-select" id="task_priority" name="priority">
+                <option value="LOW">Low</option>
+                <option value="MEDIUM" selected>Medium</option>
+                <option value="HIGH">High</option>
+                <option value="URGENT">Urgent</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="task_status">Status</label>
+              <select class="form-select" id="task_status" name="status">
+                <option value="TODO" selected>To-Do</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="COMPLETED">Completed</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="task_category">Category</label>
+              <input type="text" class="form-control" id="task_category" name="category" list="category_suggestions" placeholder="General">
+              <datalist id="category_suggestions">
+                <option value="Development">
+                <option value="Design">
+                <option value="Documentation">
+                <option value="Testing">
+                <option value="Planning">
+                <option value="Research">
+                <option value="General">
+              </datalist>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="task_due_date">Due Date</label>
+              <input type="date" class="form-control" id="task_due_date" name="due_date">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="task_project_id">Assign to Project</label>
+            <select class="form-select" id="task_project_id" name="project_id">
+              <option value="">-- No Project --</option>
+              {% if projects %}
+                {% for proj in projects %}
+                  <option value="{{ proj.id if proj.id is defined else proj.project.id }}">
+                    {{ proj.name if proj.name is defined else proj.project.name }}
+                  </option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-modal-close>Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================================
+       MODAL: Edit Task
+       ============================================================================ -->
+  <div class="modal-backdrop" id="editTaskModal" role="dialog" aria-modal="true" aria-labelledby="editTaskTitle">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="editTaskTitle">Edit Task</h3>
+        <button class="modal-close-btn" type="button" aria-label="Close Modal">&times;</button>
+      </div>
+      <form action="" method="POST" id="editTaskForm">
+        <input type="hidden" id="edit_task_id" name="task_id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="edit_title">Task Title *</label>
+            <input type="text" class="form-control" id="edit_title" name="title" required minlength="3" maxlength="150">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="edit_description">Description</label>
+            <textarea class="form-control" id="edit_description" name="description" rows="3"></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="edit_priority">Priority</label>
+              <select class="form-select" id="edit_priority" name="priority">
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+                <option value="URGENT">Urgent</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="edit_status">Status</label>
+              <select class="form-select" id="edit_status" name="status">
+                <option value="TODO">To-Do</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="COMPLETED">Completed</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label" for="edit_category">Category</label>
+              <input type="text" class="form-control" id="edit_category" name="category">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="edit_due_date">Due Date</label>
+              <input type="date" class="form-control" id="edit_due_date" name="due_date">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="edit_project_id">Assign to Project</label>
+            <select class="form-select" id="edit_project_id" name="project_id">
+              <option value="">-- No Project --</option>
+              {% if projects %}
+                {% for proj in projects %}
+                  <option value="{{ proj.id if proj.id is defined else proj.project.id }}">
+                    {{ proj.name if proj.name is defined else proj.project.name }}
+                  </option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-modal-close>Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================================
+       MODAL: Delete Confirmation
+       ============================================================================ -->
+  <div class="modal-backdrop" id="deleteTaskModal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+    <div class="modal-content" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="deleteModalTitle" style="color: var(--danger);">Confirm Deletion</h3>
+        <button class="modal-close-btn" type="button" aria-label="Close Modal">&times;</button>
+      </div>
+      <form action="" method="POST" id="deleteTaskForm">
+        <div class="modal-body">
+          <p style="color: var(--text-muted); font-size: 0.92rem;">
+            Are you sure you want to permanently remove <strong id="deleteTaskTitle" style="color: var(--text-main);">this task</strong>? This action cannot be undone.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-modal-close>Cancel</button>
+          <button type="submit" class="btn btn-danger">Delete Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Anchor -->
+  <div class="toast-container" aria-live="polite"></div>
+
+  <!-- Scripts -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/tasks.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+</body>
+</html>

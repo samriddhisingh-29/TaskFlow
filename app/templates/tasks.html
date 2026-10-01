@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}TaskFlow — Task Management{% endblock %}
+{% block page_title %}Tasks{% endblock %}
+
+{% block content %}
+<!-- Top Header & Actions -->
+<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+  <div>
+    <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.2rem;">
+      Task Management
+    </h2>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">
+      Showing {{ filtered_count }} of {{ total_count }} total tasks
+    </p>
+  </div>
+
+  <div style="display: flex; gap: 0.75rem;">
+    <a href="{{ url_for('main.export_tasks_csv') }}" class="btn btn-secondary">
+      <span>📥 Export CSV</span>
+    </a>
+    <button type="button" class="btn btn-primary" data-modal-target="addTaskModal">
+      <span>+ Add Task</span>
+    </button>
+  </div>
+</div>
+
+<!-- Filters & Search Toolbar -->
+<form method="GET" action="{{ url_for('main.tasks') }}" class="filters-bar">
+  <!-- Search Input -->
+  <div class="search-input-wrapper">
+    <span class="search-icon">🔍</span>
+    <input type="text" name="q" class="form-control" placeholder="Search tasks, descriptions, projects..." value="{{ search_query }}">
+  </div>
+
+  <!-- Status Filter Dropdown / Pills -->
+  <div style="display: flex; align-items: center; gap: 0.5rem;">
+    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);" for="filter_status">Status:</label>
+    <select name="status" id="filter_status" class="form-select" style="width: auto; padding: 0.45rem 0.8rem; font-size: 0.85rem;" onchange="this.form.submit()">
+      <option value="ALL" {% if current_status == 'ALL' %}selected{% endif %}>All Statuses</option>
+      <option value="TODO" {% if current_status == 'TODO' %}selected{% endif %}>To-Do</option>
+      <option value="IN_PROGRESS" {% if current_status == 'IN_PROGRESS' %}selected{% endif %}>In Progress</option>
+      <option value="COMPLETED" {% if current_status == 'COMPLETED' %}selected{% endif %}>Completed</option>
+    </select>
+  </div>
+
+  <!-- Priority Filter Dropdown -->
+  <div style="display: flex; align-items: center; gap: 0.5rem;">
+    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);" for="filter_priority">Priority:</label>
+    <select name="priority" id="filter_priority" class="form-select" style="width: auto; padding: 0.45rem 0.8rem; font-size: 0.85rem;" onchange="this.form.submit()">
+      <option value="ALL" {% if current_priority == 'ALL' %}selected{% endif %}>All Priorities</option>
+      <option value="LOW" {% if current_priority == 'LOW' %}selected{% endif %}>Low</option>
+      <option value="MEDIUM" {% if current_priority == 'MEDIUM' %}selected{% endif %}>Medium</option>
+      <option value="HIGH" {% if current_priority == 'HIGH' %}selected{% endif %}>High</option>
+      <option value="URGENT" {% if current_priority == 'URGENT' %}selected{% endif %}>Urgent</option>
+    </select>
+  </div>
+
+  <!-- Category Filter Dropdown -->
+  <div style="display: flex; align-items: center; gap: 0.5rem;">
+    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);" for="filter_category">Category:</label>
+    <select name="category" id="filter_category" class="form-select" style="width: auto; padding: 0.45rem 0.8rem; font-size: 0.85rem;" onchange="this.form.submit()">
+      <option value="ALL" {% if current_category == 'ALL' %}selected{% endif %}>All Categories</option>
+      {% for cat in categories %}
+        <option value="{{ cat }}" {% if current_category == cat %}selected{% endif %}>{{ cat }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Sort By Dropdown -->
+  <div style="display: flex; align-items: center; gap: 0.5rem;">
+    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);" for="sort_by">Sort:</label>
+    <select name="sort" id="sort_by" class="form-select" style="width: auto; padding: 0.45rem 0.8rem; font-size: 0.85rem;" onchange="this.form.submit()">
+      <option value="created_desc" {% if current_sort == 'created_desc' %}selected{% endif %}>Newest Created</option>
+      <option value="due_date_asc" {% if current_sort == 'due_date_asc' %}selected{% endif %}>Due Date (Earliest)</option>
+      <option value="due_date_desc" {% if current_sort == 'due_date_desc' %}selected{% endif %}>Due Date (Latest)</option>
+      <option value="priority_desc" {% if current_sort == 'priority_desc' %}selected{% endif %}>Priority (Highest)</option>
+      <option value="priority_asc" {% if current_sort == 'priority_asc' %}selected{% endif %}>Priority (Lowest)</option>
+      <option value="title_asc" {% if current_sort == 'title_asc' %}selected{% endif %}>Title (A-Z)</option>
+    </select>
+  </div>
+
+  <div style="display: flex; gap: 0.5rem;">
+    <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+    {% if search_query or current_status != 'ALL' or current_priority != 'ALL' or current_category != 'ALL' or current_sort != 'created_desc' %}
+      <a href="{{ url_for('main.tasks') }}" class="btn btn-secondary btn-sm" title="Clear all filters">Reset</a>
+    {% endif %}
+  </div>
+</form>
+
+<!-- Task Table -->
+<div class="card">
+  <div class="card-body" style="padding: 0;">
+    {% if tasks %}
+      <div class="task-table-wrapper" style="border: none;">
+        <table class="task-table">
+          <thead>
+            <tr>
+              <th style="width: 44px;"></th>
+              <th>Task Details</th>
+              <th>Project</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Due Date</th>
+              <th>Created</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for task in tasks %}
+              <tr>
+                <td>
+                  <button class="task-checkbox-btn {% if task.status == 'COMPLETED' %}checked{% endif %} task-toggle-btn"
+                          data-task-id="{{ task.id }}"
+                          title="Toggle Status">
+                    {% if task.status == 'COMPLETED' %}✓{% endif %}
+                  </button>
+                </td>
+                <td style="max-width: 320px;">
+                  <div class="task-title-cell">
+                    <span class="task-title-text {% if task.status == 'COMPLETED' %}completed{% endif %}">
+                      {{ task.title }}
+                    </span>
+                    {% if task.description %}
+                      <span class="task-desc-preview" title="{{ task.description }}">
+                        {{ task.description }}
+                      </span>
+                    {% endif %}
+                    <div>
+                      <span class="badge badge-category">{{ task.category }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td style="white-space: nowrap; font-size: 0.85rem; color: var(--text-muted);">
+                  {% if task.project_id %}
+                    <a href="{{ url_for('main.project_detail', project_id=task.project_id) }}" style="font-weight: 600;">
+                      {{ task.project_name }}
+                    </a>
+                  {% else %}
+                    <span style="color: var(--text-light);">No Project</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="badge badge-priority-{{ task.priority.lower() }}">
+                    {{ task.priority }}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge badge-status-{{ task.status.lower() }}">
+                    {{ task.status.replace('_', ' ') }}
+                  </span>
+                </td>
+                <td style="white-space: nowrap; font-size: 0.85rem; color: var(--text-muted);">
+                  {{ task.due_date | format_date if task.due_date else 'None' }}
+                  {% if task.is_overdue %}
+                    <div><span class="overdue-tag">! Overdue</span></div>
+                  {% endif %}
+                </td>
+                <td style="white-space: nowrap; font-size: 0.78rem; color: var(--text-light);">
+                  {{ task.created_at | format_date("%b %d") }}
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <button class="btn btn-secondary btn-sm edit-task-btn"
+                          data-id="{{ task.id }}"
+                          data-title="{{ task.title }}"
+                          data-desc="{{ task.description }}"
+                          data-status="{{ task.status }}"
+                          data-priority="{{ task.priority }}"
+                          data-category="{{ task.category }}"
+                          data-due="{{ task.due_date or '' }}"
+                          data-project="{{ task.project_id or '' }}"
+                          title="Edit Task">
+                    ✎
+                  </button>
+                  <button class="btn btn-secondary btn-sm delete-task-btn"
+                          data-id="{{ task.id }}"
+                          data-title="{{ task.title }}"
+                          title="Delete Task"
+                          style="color: var(--danger);">
+                    🗑
+                  </button>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">🔍</div>
+        <div class="empty-state-title">No matching tasks found</div>
+        <p class="empty-state-desc">Try clearing your search query or relaxing your filter parameters.</p>
+        <a href="{{ url_for('main.tasks') }}" class="btn btn-secondary btn-sm">Reset Filters</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
